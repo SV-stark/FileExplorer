@@ -14,7 +14,9 @@
       "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost data:; media-src 'self' asset: http://asset.localhost; frame-src 'self' asset: http://asset.localhost data: blob; object-src 'self' asset: http://asset.localhost data: blob",
       "assetProtocol": {
         "enable": true,
-        "scope": ["*/**"]
+        "scope": [
+          "*/**"
+        ]
       }
     },
     "withGlobalTauri": false,
@@ -32,8 +34,18 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "rpm", "dmg", "msi"],
-    "icon": ["icons/logo_32x32.png", "icons/logo_128x128.png", "icons/logo.icns", "icons/logo.ico"],
+    "targets": [
+      "deb",
+      "rpm",
+      "dmg",
+      "nsis"
+    ],
+    "icon": [
+      "icons/logo_32x32.png",
+      "icons/logo_128x128.png",
+      "icons/logo.icns",
+      "icons/logo.ico"
+    ],
     "windows": {
       "wix": {
         "language": "en-US"

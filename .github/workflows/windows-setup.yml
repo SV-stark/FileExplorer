@@ -49,9 +49,9 @@ jobs:
           prerelease: true
           args: --target x86_64-pc-windows-msvc
 
-      - name: Upload MSI Artifact
+      - name: Upload Setup EXE Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
-          path: src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+          name: windows-setup-exe
+          path: target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
           if-no-files-found: error
