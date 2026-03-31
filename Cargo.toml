@@ -19,4 +19,7 @@ targets = ["x86_64-pc-windows-msvc"]
 publish-jobs = ["homebrew"]
 # Whether to install an updater program
 install-updater = true
+# Repository URL
+repository = "https://github.com/SV-stark/FileExplorer"
+
 

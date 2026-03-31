@@ -3,8 +3,8 @@ name = "src-tauri"
 version = "0.3.0"
 description = "Explr - Modern File Explorer"
 authors = ["Conaticus", "ProtogenDelta", "Marco Brandt", "Lauritz Wiebusch", "Daniel Schatz", "Sören Panten"]
-license = ""
-repository = ""
+license = "MIT"
+repository = "https://github.com/SV-stark/FileExplorer"
 edition = "2021"
 
 [dependencies]
