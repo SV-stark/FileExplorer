@@ -48,9 +48,13 @@ export default function FileSystemProvider({ children }) {
     } = useSftp();
 
     // Helper function to check if a file or directory is hidden
-    const isHiddenItem = useCallback((name) => {
-        // Files/folders starting with a dot are considered hidden on Unix-like systems
-        return name.startsWith('.');
+    const isHiddenItem = useCallback((item) => {
+        // Use the backend-provided is_hidden property if available, 
+        // otherwise fallback to dot-prefix check
+        if (item && typeof item.is_hidden === 'boolean') {
+            return item.is_hidden;
+        }
+        return item.name ? item.name.startsWith('.') : false;
     }, []);
 
     // Helper function to filter directory data based on hidden files setting
@@ -64,9 +68,9 @@ export default function FileSystemProvider({ children }) {
 
         // Filter out hidden files and directories
         const filteredDirectories = dirData.directories ? 
-            dirData.directories.filter(dir => !isHiddenItem(dir.name)) : [];
+            dirData.directories.filter(dir => !isHiddenItem(dir)) : [];
         const filteredFiles = dirData.files ? 
-            dirData.files.filter(file => !isHiddenItem(file.name)) : [];
+            dirData.files.filter(file => !isHiddenItem(file)) : [];
 
         return {
             ...dirData,

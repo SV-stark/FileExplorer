@@ -424,6 +424,7 @@ impl SearchEngineState {
             // Process current directory
             let walker = jwalk::WalkDir::new(&current_dir)
                 .follow_links(false)
+                .skip_hidden(false)
                 .max_depth(1);
             
             for entry_res in walker {

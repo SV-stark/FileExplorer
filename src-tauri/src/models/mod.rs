@@ -11,7 +11,7 @@ mod directory_entries_helper;
 pub use directory_entries_helper::Entries;
 pub use directory_entries_helper::{
     count_subdirectories, count_subfiles, format_system_time,
-    get_access_permission_number, get_access_permission_string,
+    get_access_permission_number, get_access_permission_string, is_hidden,
 };
 
 pub mod logging_level;

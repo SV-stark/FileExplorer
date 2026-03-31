@@ -6,11 +6,27 @@ use std::fs::Permissions;
 use std::os::unix::fs::PermissionsExt;
 use std::time::SystemTime;
 use jwalk::WalkDir;
+#[cfg(windows)]
+use std::os::windows::fs::MetadataExt;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Entries {
     pub(crate) directories: Vec<models::Directory>,
     pub(crate) files: Vec<models::File>,
+}
+
+/// Detects if a file or directory should be considered hidden.
+pub fn is_hidden(metadata: &fs::Metadata, name: &str) -> bool {
+    let starts_with_dot = name.starts_with('.');
+    #[cfg(windows)]
+    {
+        let attributes = metadata.file_attributes();
+        starts_with_dot || (attributes & 0x2) != 0 // 0x2 is FILE_ATTRIBUTE_HIDDEN
+    }
+    #[cfg(not(windows))]
+    {
+        starts_with_dot
+    }
 }
 
 /// This function retrieves the access permissions of a file or directory.

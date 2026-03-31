@@ -1,7 +1,7 @@
 use crate::error_handling::{Error, ErrorCode};
 use crate::models::{
     count_subdirectories, count_subfiles, format_system_time, get_access_permission_number,
-    get_access_permission_string, Entries,
+    get_access_permission_string, is_hidden, Entries,
 };
 use crate::{log_error, models};
 use std::fs;
@@ -148,39 +148,49 @@ pub async fn open_directory(path: String) -> Result<String, String> {
         )
         .to_json()
     })? {
-        let entry = entry.map_err(|err| {
-            log_error!("Failed to read entry: {}", err);
-            Error::new(
-                ErrorCode::InternalError,
-                format!("Failed to read entry: {}", err),
-            )
-            .to_json()
-        })?;
+        let entry = match entry {
+            Ok(e) => e,
+            Err(err) => {
+                log_error!("Failed to read entry: {}", err);
+                continue;
+            }
+        };
 
-        let file_type = entry.file_type().map_err(|err| {
-            log_error!("Failed to get file type: {}", err);
-            Error::new(
-                ErrorCode::InternalError,
-                format!("Failed to get file type: {}", err),
-            )
-            .to_json()
-        })?;
+        let file_type = match entry.file_type() {
+            Ok(ft) => ft,
+            Err(err) => {
+                log_error!("Failed to get file type for {:?}: {}", entry.path(), err);
+                continue;
+            }
+        };
 
         let path_of_entry = entry.path();
-        let metadata = entry.metadata().map_err(|err| {
-            log_error!("Failed to get metadata: {}", err);
-            Error::new(
-                ErrorCode::InternalError,
-                format!("Failed to get metadata: {}", err),
-            )
-            .to_json()
-        })?;
+        
+        // entry.metadata() follows symlinks, entry.symlink_metadata() does not.
+        // We use metadata() to get info about the target if it's a symlink.
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(err) => {
+                log_error!("Failed to get metadata for {:?}: {}", path_of_entry, err);
+                // If metadata fails (e.g. broken symlink or permission error), 
+                // we might still want to show the entry as a file or just skip it.
+                // For now, let's skip to avoid incorrect information.
+                continue;
+            }
+        };
 
-        if file_type.is_dir() {
+        let is_symlink = file_type.is_symlink();
+        let is_dir = metadata.is_dir();
+        let is_file = metadata.is_file();
+        let name = entry.file_name().to_str().unwrap_or("[invalid name]").to_string();
+        let hidden = is_hidden(&metadata, &name);
+
+        if is_dir {
             directories.push(models::Directory {
-                name: entry.file_name().to_str().unwrap_or("[invalid name]").to_string(),
+                name,
                 path: path_of_entry.to_str().unwrap_or("[invalid path]").to_string(),
-                is_symlink: path_of_entry.is_symlink(),
+                is_symlink,
+                is_hidden: hidden,
                 access_rights_as_string: get_access_permission_string(metadata.permissions(), true),
                 access_rights_as_number: get_access_permission_number(metadata.permissions(), true),
                 size_in_bytes: 0,
@@ -202,11 +212,12 @@ pub async fn open_directory(path: String) -> Result<String, String> {
                         format_system_time(time)
                     }),
             });
-        } else if file_type.is_file() {
+        } else if is_file {
             files.push(models::File {
-                name: entry.file_name().to_str().unwrap_or("[invalid name]").to_string(),
+                name,
                 path: path_of_entry.to_str().unwrap_or("[invalid path]").to_string(),
-                is_symlink: path_of_entry.is_symlink(),
+                is_symlink,
+                is_hidden: hidden,
                 access_rights_as_string: get_access_permission_string(
                     metadata.permissions(),
                     false,

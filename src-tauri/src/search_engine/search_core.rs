@@ -453,6 +453,7 @@ impl SearchCore {
             let mut file_count = 0;
             for entry in WalkDir::new(&root_path)
                 .follow_links(false)
+                .skip_hidden(false) // Include hidden files in the index
                 .max_depth(20) // Reasonable depth limit
                 .into_iter()
                 .filter_map(Result::ok)
@@ -467,11 +468,6 @@ impl SearchCore {
 
                 let path = entry.path();
 
-                // Explicitly skip symlinks and unreadable entries
-                if entry.file_type.is_symlink() {
-                    continue; // Skip symlinks
-                }
-
                 if let Some(path_str) = path.to_str() {
                     if let Some(ref patterns) = excluded {
                         if patterns.iter().any(|p| path_str.contains(p)) {
@@ -481,7 +477,8 @@ impl SearchCore {
                         }
                     }
 
-                    if entry.file_type.is_file() || entry.file_type.is_dir() {
+                    // Index if it's a file, directory, or symlink
+                    if entry.file_type.is_file() || entry.file_type.is_dir() || entry.file_type.is_symlink() {
                         if let Ok(mut paths) = collected_paths_clone.lock() {
                             paths.push(path_str.to_string());
                         }

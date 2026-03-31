@@ -1,5 +1,5 @@
 use crate::models::{
-    format_system_time, get_access_permission_number, get_access_permission_string,
+    format_system_time, get_access_permission_number, get_access_permission_string, is_hidden,
 };
 use serde::{Deserialize, Serialize};
 use std::fs::DirEntry;
@@ -9,6 +9,7 @@ pub struct File {
     pub name: String,
     pub path: String,
     pub is_symlink: bool,
+    pub is_hidden: bool,
     pub access_rights_as_string: String,
     pub access_rights_as_number: u32,
     pub size_in_bytes: u64,
@@ -28,11 +29,14 @@ impl File {
     pub fn from_dir_entry(entry: DirEntry) -> Result<Self> {
         let path_of_entry = entry.path();
         let metadata = entry.metadata()?;
+        let name = entry.file_name().to_str().unwrap_or("").to_string();
+        let hidden = is_hidden(&metadata, &name);
 
         Ok(File {
-            name: entry.file_name().to_str().unwrap_or("").to_string(),
+            name,
             path: path_of_entry.to_str().unwrap_or("").to_string(),
             is_symlink: path_of_entry.is_symlink(),
+            is_hidden: hidden,
             access_rights_as_string: get_access_permission_string(metadata.permissions(), false),
             access_rights_as_number: get_access_permission_number(metadata.permissions(), false),
             size_in_bytes: metadata.len(),
