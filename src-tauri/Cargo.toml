@@ -34,10 +34,10 @@ russh-sftp = "2.1.1"
 anyhow = "1.0.98"
 base64 = "0.22.1"
 chardetng = "0.1.17"
-bumpalo = "3.14"  # Arena allocation for temporary objects
-parking_lot = "0.12"  # Better RwLock implementation
 jwalk = "0.8.1"
 jiff = "0.2"
+parking_lot = "0.12"
+mimalloc = "0.1"
 
 [build-dependencies]
 tauri-build = { version = "2.1", features = [] }
