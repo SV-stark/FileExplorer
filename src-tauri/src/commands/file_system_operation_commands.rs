@@ -718,7 +718,7 @@ pub async fn zip(
                 err_msg
             })?;
         } else if source.is_dir() {
-            for entry in walkdir::WalkDir::new(source) {
+            for entry in jwalk::WalkDir::new(source) {
                 let entry = entry.map_err(|e| {
                     let err_msg = format!("Error reading directory: {}", e);
                     log_error!(&err_msg);

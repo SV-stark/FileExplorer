@@ -68,7 +68,7 @@ pub mod test_generate_test_data {
 
             let mut rng = thread_rng();
 
-            let idx = rng.gen_range(0, charset.len());
+            let idx = rng.gen_range(0..charset.len());
             return charset[idx].to_string();
         };
 
@@ -80,7 +80,7 @@ pub mod test_generate_test_data {
             ];
 
             let mut rng = thread_rng();
-            let idx = rng.gen_range(0, EXTENSIONS.len());
+            let idx = rng.gen_range(0..EXTENSIONS.len());
             EXTENSIONS[idx]
         };
 

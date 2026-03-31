@@ -434,7 +434,7 @@ impl SearchCore {
     pub async fn add_paths_recursive(&mut self, root_path: &str, excluded_patterns: Option<&Vec<String>>) {
         use std::sync::{Arc, Mutex};
         use tokio::task;
-        use walkdir::WalkDir;
+        use jwalk::WalkDir;
         #[cfg(feature = "index-progress-logging")]
         let index_start = Instant::now();
 
@@ -468,7 +468,7 @@ impl SearchCore {
                 let path = entry.path();
 
                 // Explicitly skip symlinks and unreadable entries
-                if path.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+                if entry.file_type.is_symlink() {
                     continue; // Skip symlinks
                 }
 
@@ -481,15 +481,10 @@ impl SearchCore {
                         }
                     }
 
-                    if let Ok(metadata) = std::fs::metadata(path) {
-                        if metadata.is_file() || metadata.is_dir() {
-                            if let Ok(mut paths) = collected_paths_clone.lock() {
-                                paths.push(path_str.to_string());
-                            }
+                    if entry.file_type.is_file() || entry.file_type.is_dir() {
+                        if let Ok(mut paths) = collected_paths_clone.lock() {
+                            paths.push(path_str.to_string());
                         }
-                    } else {
-                        #[cfg(feature = "index-error-logging")]
-                        log_error!("Failed to access metadata for: '{}'", path_str);
                     }
                 }
             }
@@ -613,87 +608,52 @@ impl SearchCore {
     /// # Performance
     /// O(n) where n is the number of files and directories under the path
     pub fn remove_paths_recursive(&mut self, path: &str) {
+        use jwalk::WalkDir;
+
         #[cfg(feature = "index-progress-logging")]
         let start_time = Instant::now();
         
         #[cfg(feature = "index-progress-logging")]
         log_info!("Starting recursive removal of path: '{}'", path);
         
-        // Remove the path itself first
-        self.remove_path(path);
+        let root_path_normalized = self.normalize_path(path);
 
-        // Check if dir
-        let path_obj = std::path::Path::new(path);
-        if !path_obj.exists() || !path_obj.is_dir() {
-            #[cfg(feature = "index-progress-logging")]
-            {
-                if !path_obj.exists() {
-                    log_info!("Path doesn't exist, skipping recursion: '{}'", path);
-                } else {
-                    log_info!("Path is not a directory, skipping recursion: '{}'", path);
-                }
-            }
-            
-            return;
-        }
-
-        #[cfg(feature = "index-progress-logging")]
-        log_info!(
-            "Recursively removing directory from index: {}",
-            path
-        );
-        
-        #[allow(unused_variables)]
-        let mut removed_count = 1;
-
+        // Use jwalk to find all paths under this directory BEFORE removing anything,
+        // to ensure we can still walk the directory if it's being deleted from index.
         let mut paths_to_remove = Vec::new();
-
-        // Walk dir
-        if let Ok(entries) = std::fs::read_dir(path) {
-            for entry in entries.filter_map(Result::ok) {
-                let entry_path = entry.path();
-                if let Some(entry_str) = entry_path.to_str() {
+        
+        let path_obj = std::path::Path::new(path);
+        if path_obj.exists() && path_obj.is_dir() {
+            for entry in WalkDir::new(path)
+                .follow_links(false)
+                .into_iter()
+                .filter_map(Result::ok)
+            {
+                if let Some(entry_str) = entry.path().to_str() {
                     paths_to_remove.push(entry_str.to_string());
                 }
             }
         } else {
-            #[cfg(feature = "index-error-logging")]
-            log_error!("Failed to read directory '{}' for removal", path);
+            // Even if it doesn't exist on disk anymore, we should try to remove the root path from index
+            paths_to_remove.push(path.to_string());
         }
 
-        #[cfg(feature = "index-progress-logging")]
-        log_info!("Found {} child paths to remove under '{}'", paths_to_remove.len(), path);
-
-        // Now remove each path
+        // Now remove each path from the index
         for path_to_remove in paths_to_remove {
-            if std::path::Path::new(&path_to_remove).is_dir() {
-                #[cfg(feature = "index-progress-logging")]
-                log_info!("Recursing into directory for removal: '{}'", path_to_remove);
-                
-                self.remove_paths_recursive(&path_to_remove);
-                
-                removed_count += 1;
-            } else {
-                self.remove_path(&path_to_remove);
-                
-                removed_count += 1;
-            }
+            self.remove_path(&path_to_remove);
         }
 
-        // Ensure the cache is purged of any entries that might contain references to removed paths
-        self.cache.purge_expired();
+        // Final thorough cleanup of root path just in case
+        self.remove_path(&root_path_normalized);
+
+        // Ensure the cache is completely purged
+        self.cache.clear();
         
         #[cfg(feature = "index-progress-logging")]
         {
             let elapsed = start_time.elapsed();
-            let paths_per_ms = if elapsed.as_millis() > 0 {
-                removed_count as f64 / elapsed.as_millis() as f64
-            } else {
-                removed_count as f64 // Avoid division by zero
-            };
-            
-            log_info!("Completed recursive removal of '{}': {} paths in {:?} ({:.2} paths/ms)",
-                     path, removed_count, elapsed, paths_per_ms);
+            log_info!("Completed recursive removal of '{}' in {:?}",
+                     path, elapsed);
         }
     }
 

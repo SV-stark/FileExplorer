@@ -53,8 +53,7 @@ use crate::constants::{ERROR_LOG_FILE_ABS_PATH, LOG_FILE_ABS_PATH, MAX_NUMBER_OF
 use crate::error_handling::{Error, ErrorCode};
 use crate::models::LoggingLevel;
 use crate::state::SettingsState;
-use chrono::Local;
-use once_cell::sync::{Lazy, OnceCell};
+use std::sync::{LazyLock, OnceLock};
 use std::fmt;
 use std::fs;
 use std::fs::OpenOptions;
@@ -151,7 +150,7 @@ macro_rules! log_critical {
     };
 }
 
-static WRITE_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+static WRITE_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogLevel {
@@ -178,8 +177,8 @@ pub struct Logger {
     state: Arc<Mutex<SettingsState>>,
 }
 
-// Replace Lazy with OnceCell for more flexible initialization
-static LOGGER: OnceCell<Logger> = OnceCell::new();
+// Replace Lazy with OnceLock for more flexible initialization
+static LOGGER: OnceLock<Logger> = OnceLock::new();
 
 impl Logger {
     pub fn new(state: Arc<Mutex<SettingsState>>) -> Self {
@@ -257,7 +256,7 @@ impl Logger {
     }
 
     pub fn log(&self, level: LogLevel, file: &str, function: &str, message: &str, line: u32) {
-        let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let timestamp = jiff::Zoned::now().strftime("%Y-%m-%d %H:%M:%S").to_string();
 
         // Retrieve the logging state with proper error handling
         let (logging_state, json_log) = match self.state.lock() {
@@ -308,7 +307,7 @@ impl Logger {
     /// Called when file_size > MAX_FILE_SIZE.
     fn rotate_logs(&self, path: &PathBuf) {
         // Use timestamp-based naming for archived logs
-        let timestamp = Local::now().format("%Y%m%d_%H%M%S");
+        let timestamp = jiff::Zoned::now().strftime("%Y%m%d_%H%M%S");
         let stem = path.file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("log");

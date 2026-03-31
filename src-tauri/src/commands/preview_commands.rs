@@ -85,7 +85,7 @@ pub fn build_preview(path: String) -> Result<PreviewPayload, String> {
         let folder_meta = fs::metadata(&p).ok();
         let folder_modified = folder_meta.and_then(|m| m.modified().ok());
         let modified_time = latest_modified.or(folder_modified);
-        let modified_str = modified_time.and_then(|t| chrono::DateTime::<chrono::Local>::from(t).to_rfc3339().into());
+        let modified_str = modified_time.and_then(|t| jiff::Timestamp::try_from(t).ok().map(|ts| ts.to_zoned(jiff::tz::TimeZone::system()).to_string()));
         return Ok(PreviewPayload::Folder {
             name,
             size,

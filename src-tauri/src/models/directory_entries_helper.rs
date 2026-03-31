@@ -1,12 +1,11 @@
 use crate::models;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::fs::Permissions;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::time::SystemTime;
-use walkdir::WalkDir;
+use jwalk::WalkDir;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Entries {
@@ -198,8 +197,8 @@ pub fn access_rights_to_string_unix(permissions: Permissions) -> String {
 ///  println!("Formatted time: {}", formatted_time);
 /// }
 pub fn format_system_time(system_time: SystemTime) -> String {
-    let datetime: DateTime<Utc> = system_time.into();
-    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+    let timestamp = jiff::Timestamp::try_from(system_time).unwrap_or(jiff::Timestamp::UNIX_EPOCH);
+    timestamp.strftime("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 /// This function calculates the size of a directory in bytes.
@@ -226,9 +225,9 @@ pub fn get_directory_size_in_bytes(path: &str) -> u64 {
     WalkDir::new(path)
         .into_iter()
         .filter_map(Result::ok) // Ignore errors
-        .filter(|entry| entry.path().is_file()) // Only count files
+        .filter(|entry| entry.file_type.is_file()) // Only count files
         .map(|entry| {
-            fs::metadata(entry.path())
+            entry.metadata()
                 .map(|meta| meta.len())
                 .unwrap_or(0)
         }) // Get file sizes
